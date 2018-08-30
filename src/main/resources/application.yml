@@ -1,0 +1,30 @@
+---
+messageHub:
+  username: ENC(csSOq4MQJITBQ0Wx4+9UvvzxyXcjUSA6NmwD3TjSB6c=)
+  password: ENC(vgeaK9+TqUB0K48OvGoCp+pJWXdLq1eIGGqkyKDo7516Umb/t+0wnC/IrLxPDg3c)
+#  username: OhWHCQYTZJvnxjg4
+#  password: qp02RDHrxLKAB9SCQFhsjMYKP8oW5Aoj
+
+spring:
+  profiles: dev
+  kafka:
+    bootstrap-servers: kafka03-prod02.messagehub.services.us-south.bluemix.net:9093,kafka02-prod02.messagehub.services.us-south.bluemix.net:9093,kafka05-prod02.messagehub.services.us-south.bluemix.net:9093,kafka04-prod02.messagehub.services.us-south.bluemix.net:9093,kafka01-prod02.messagehub.services.us-south.bluemix.net:9093
+    consumer:
+      group-id: test1
+      auto-offset-reset: latest
+    properties:
+      group.id: test
+      client.id: ${messageHub.username}${messageHub.password}
+      sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username="${messageHub.username}" password="${messageHub.password}";
+      security.protocol: SASL_SSL
+      sasl.mechanism: PLAIN
+      ssl.protocol: TLSv1.2
+      ssl.enabled.protocols: TLSv1.2
+      ssl.truststore.type: JKS
+      ssl.endpoint.identification.algorithm: HTTPS
+
+
+
+jasypt:
+  encryptor:
+    password: 0GycQDLL8qAvZph8vrijbHSuOk7wrdxf
