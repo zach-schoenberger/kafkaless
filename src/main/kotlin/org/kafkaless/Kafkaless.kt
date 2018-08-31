@@ -31,7 +31,7 @@ fun main(args: Array<String>) {
     options.addOption("l", "file", true, "file of lines to publish to kafka topic")
     options.addOption("i", false, "read stdin to publish to kafka topic")
     options.addOption("X", true, "additional kafka properties")
-//    options.addOption("g", "group", true, "consumer group name to use")
+    options.addOption("g", "group", true, "consumer group name to use")
     options.addOption("r", "regex", true, "regex to filter by")
     options.addOption("F", "full", false, "print full consumer record")
     options.addOption("c", "count", true, "number of records to consume")
