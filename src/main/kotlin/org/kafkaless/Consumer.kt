@@ -20,7 +20,9 @@ suspend fun consumeRecords(properties: Properties,
         kafkaConsumer.assign(partitions)
     }
 
-    var records = kafkaConsumer.poll(100)
+//    This is done to initialize the consumer with the above assignments. It never appears to returns records
+//    It is required for group consuming to allow the seek to work properly
+    kafkaConsumer.poll(100)
 
     when(offset){
         KafkaOffsets.Earliest -> {
@@ -33,7 +35,7 @@ suspend fun consumeRecords(properties: Properties,
     }
 
     while(true) {
-        records = kafkaConsumer.poll(100)
+        val records = kafkaConsumer.poll(100)
         when {
             records.isEmpty -> {
                 Thread.sleep(100)

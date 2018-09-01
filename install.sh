@@ -2,9 +2,10 @@
 
 ./gradlew clean build
 
+source ./gradle.properties
 mkdir -p ~/lib/kafkaless
 mkdir -p ~/bin/
-tar -xf ./build/distributions/kafkaless-shadow-0.0.1.tar --strip 1 -C ~/lib/kafkaless
+tar -xf ./build/distributions/kafkaless-shadow-${VERSION}.tar --strip 1 -C ~/lib/kafkaless
 ln -Fs ~/lib/kafkaless/bin/kafkaless ~/bin/kafkaless
 
 #Recommended .profile additions:
