@@ -98,13 +98,8 @@ fun main(args: Array<String>) {
         }
     }
 
-    if(cmd.hasOption("properties")) {
-        defaultProps.loadPropertiesFile(cmd.getOptionValue("properties"))
-    }
-
-    if(cmd.hasOption('X')) {
-        cmd.getOptionValues('X').map { it.split("=") }.forEach { defaultProps[it[0]] = it[1] }
-    }
+    cmd.getOptionValue("properties")?.let { defaultProps.loadPropertiesFile(it) }
+    cmd.getOptionValues('X')?.map { it.split("=") }?.forEach { defaultProps[it[0]] = it[1] }
 
     defaultProps["bootstrap.servers"] = cmd.getOptionValue('b')
     val useGroup = cmd.hasOption('g')
@@ -178,8 +173,7 @@ fun main(args: Array<String>) {
 fun Properties.loadPropertiesFile(file: String) {
     try{
         this.load(ClassLoader.getSystemResourceAsStream(file))
-    }
-    catch (e: Exception) {
+    } catch (e: Exception) {
         System.err.println(e.message)
         exitProcess(1)
     }
