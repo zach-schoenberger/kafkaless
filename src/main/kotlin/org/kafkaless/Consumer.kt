@@ -1,10 +1,57 @@
 package org.kafkaless
 
 import kotlinx.coroutines.experimental.channels.Channel
+import kotlinx.coroutines.experimental.launch
+import org.apache.commons.cli.CommandLine
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.TopicPartition
 import java.util.*
+
+fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
+    val useGroup = cmd.hasOption('g')
+    if(useGroup) {
+        defaultProps["group.id"] = cmd.getOptionValue('g')
+        defaultProps["enable.auto.commit"] = "true"
+    } else {
+//        defaultProps["group.id"] = UUID.randomUUID().toString()
+        defaultProps["enable.auto.commit"] = "false"
+    }
+
+    val offset = if(cmd.hasOption("o")) {
+        when(cmd.getOptionValue("o")) {
+            "beginning" -> KafkaOffsets.Earliest
+            "end" -> KafkaOffsets.Latest
+            "stored" -> KafkaOffsets.None
+            else -> KafkaOffsets.None
+        }
+    } else {
+        KafkaOffsets.None
+    }
+
+    val autoFollow = !cmd.hasOption("pause")
+    val channel : Channel<ConsumerRecord<String,String>> = when(autoFollow) {
+        true -> Channel(1000)
+        false -> Channel()
+    }
+
+    launch {
+        consumeRecords(properties = defaultProps,
+                topic = cmd.getOptionValue('t'),
+                useGroup = useGroup,
+                offset = offset,
+                channel = channel
+        )
+    }
+    launch {
+        onEvent(channel = channel,
+                fullRecord = cmd.hasOption("F"),
+                filterRegex = cmd.getOptionValue("r"),
+                follow = autoFollow,
+                count = cmd.getOptionValue("c")?.toLong() ?: Long.MAX_VALUE
+        )
+    }
+}
 
 suspend fun consumeRecords(properties: Properties,
                            topic: String,
@@ -51,11 +98,11 @@ suspend fun consumeRecords(properties: Properties,
     }
 }
 
-suspend fun processRecords(channel: Channel<ConsumerRecord<String, String>>,
-                           fullRecord: Boolean,
-                           filterRegex: String?,
-                           follow: Boolean,
-                           count: Long
+suspend fun onEvent(channel: Channel<ConsumerRecord<String, String>>,
+                    fullRecord: Boolean,
+                    filterRegex: String?,
+                    follow: Boolean,
+                    count: Long
 ) {
     val regex = filterRegex?.let {
         filterRegex.removeSurrounding("'")

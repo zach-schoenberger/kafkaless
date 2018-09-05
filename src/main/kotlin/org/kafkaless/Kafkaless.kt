@@ -100,69 +100,14 @@ fun main(args: Array<String>) {
 
     cmd.getOptionValue("properties")?.let { defaultProps.loadPropertiesFile(it) }
     cmd.getOptionValues('X')?.map { it.split("=") }?.forEach { defaultProps[it[0]] = it[1] }
-
     defaultProps["bootstrap.servers"] = cmd.getOptionValue('b')
-    val useGroup = cmd.hasOption('g')
-    if(useGroup) {
-        defaultProps["group.id"] = cmd.getOptionValue('g')
-        defaultProps["enable.auto.commit"] = "true"
-    } else {
-//        defaultProps["group.id"] = UUID.randomUUID().toString()
-        defaultProps["enable.auto.commit"] = "false"
-    }
 
-    val offset = if(cmd.hasOption("o")) {
-        when(cmd.getOptionValue("o")) {
-            "beginning" -> KafkaOffsets.Earliest
-            "end" -> KafkaOffsets.Latest
-            "stored" -> KafkaOffsets.None
-            else -> KafkaOffsets.None
+    when {
+        cmd.hasOption('P') -> {
+            startProducer(defaultProps, cmd)
         }
-    } else {
-        KafkaOffsets.None
-    }
-
-    if(cmd.hasOption('P')) {
-        val inputStream = if(cmd.hasOption("l")) {
-            File(cmd.getOptionValue("l")).bufferedReader()
-        } else {
-            System.`in`.bufferedReader()
-        }
-
-        val channel = Channel<String>(1000)
-        val readJob = async {
-            readRecordsFromStream(inputStream = inputStream, channel = channel)
-        }
-        val writeJob = async {
-            produceRecords(properties = defaultProps, topic = cmd.getOptionValue('t'), channel = channel)
-        }
-
-        runBlocking {
-            readJob.await()
-            writeJob.await()
-        }
-    } else {
-        val autoFollow = !cmd.hasOption("pause")
-        val channel : Channel<ConsumerRecord<String,String>> = when(autoFollow) {
-            true -> Channel(1000)
-            false -> Channel()
-        }
-
-        launch {
-            consumeRecords(properties = defaultProps,
-                    topic = cmd.getOptionValue('t'),
-                    useGroup = useGroup,
-                    offset = offset,
-                    channel = channel
-            )
-        }
-        launch {
-            processRecords(channel = channel,
-                    fullRecord = cmd.hasOption("F"),
-                    filterRegex = cmd.getOptionValue("r"),
-                    follow = autoFollow,
-                    count = cmd.getOptionValue("c")?.toLong() ?: Long.MAX_VALUE
-            )
+        else -> {
+            startConsumer(defaultProps, cmd)
         }
     }
     while (true) {
