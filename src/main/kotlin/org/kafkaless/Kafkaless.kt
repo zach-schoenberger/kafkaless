@@ -1,16 +1,10 @@
 package org.kafkaless
 
-import kotlinx.coroutines.experimental.async
-import kotlinx.coroutines.experimental.channels.Channel
-import kotlinx.coroutines.experimental.launch
-import kotlinx.coroutines.experimental.runBlocking
 import org.apache.commons.cli.DefaultParser
 import org.apache.commons.cli.HelpFormatter
 import org.apache.commons.cli.Option
 import org.apache.commons.cli.Options
 import org.apache.commons.text.StringSubstitutor
-import org.apache.kafka.clients.consumer.ConsumerRecord
-import java.io.File
 import java.util.*
 import kotlin.system.exitProcess
 

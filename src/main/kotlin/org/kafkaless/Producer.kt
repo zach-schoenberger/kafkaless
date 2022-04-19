@@ -1,9 +1,10 @@
 package org.kafkaless
 
-import kotlinx.coroutines.experimental.async
-import kotlinx.coroutines.experimental.channels.Channel
-import kotlinx.coroutines.experimental.channels.sendBlocking
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.trySendBlocking
+import kotlinx.coroutines.runBlocking
 import org.apache.commons.cli.CommandLine
 import org.apache.commons.io.IOUtils
 import org.apache.kafka.clients.producer.KafkaProducer
@@ -20,10 +21,10 @@ fun startProducer(defaultProps: Properties, cmd: CommandLine) {
     }
 
     val channel = Channel<String>(1000)
-    val readJob = async {
+    val readJob = GlobalScope.async {
         readRecordsFromStream(inputStream = inputStream, channel = channel)
     }
-    val writeJob = async {
+    val writeJob = GlobalScope.async {
         produceRecords(properties = defaultProps, topic = cmd.getOptionValue('t'), channel = channel)
     }
 
@@ -52,8 +53,8 @@ suspend fun readRecordsFromStream(inputStream: BufferedReader,
 ) {
     inputStream.use {
         it.lineSequence().forEach {
-            channel.sendBlocking(it)
+            channel.trySendBlocking(it)
         }
     }
-    channel.sendBlocking(IOUtils.EOF.toByte().toString())
+    channel.trySendBlocking(IOUtils.EOF.toByte().toString())
 }

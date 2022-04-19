@@ -1,7 +1,9 @@
 package org.kafkaless
 
-import kotlinx.coroutines.experimental.channels.Channel
-import kotlinx.coroutines.experimental.launch
+//import kotlinx.coroutines.experimental.channels.Channel
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.Channel
 import org.apache.commons.cli.CommandLine
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -30,12 +32,12 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
     }
 
     val autoFollow = !cmd.hasOption("pause")
-    val channel : Channel<ConsumerRecord<String,String>> = when(autoFollow) {
+    val channel : Channel<ConsumerRecord<String, String>> = when(autoFollow) {
         true -> Channel(1000)
         false -> Channel()
     }
 
-    launch {
+    GlobalScope.launch {
         consumeRecords(properties = defaultProps,
                 topic = cmd.getOptionValue('t'),
                 useGroup = useGroup,
@@ -43,7 +45,7 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
                 channel = channel
         )
     }
-    launch {
+    GlobalScope.launch {
         onEvent(channel = channel,
                 fullRecord = cmd.hasOption("F"),
                 filterRegex = cmd.getOptionValue("r"),
