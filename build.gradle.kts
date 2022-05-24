@@ -1,7 +1,7 @@
 plugins {
     kotlin("jvm") version "1.6.10"
     kotlin("plugin.spring") version "1.6.10"
-    id("application")
+    application
 //    id("com.github.johnrengelman.shadow")
 }
 
@@ -28,12 +28,17 @@ dependencies {
     implementation("org.slf4j:slf4j-nop:1.7.36")
 }
 
+application {
+    mainClass.set("org.kafkaless.KafkalessKt")
+}
+
+
 tasks {
     compileKotlin {
-        kotlinOptions.jvmTarget = "11"
+        kotlinOptions.jvmTarget = "14"
     }
     compileTestKotlin {
-        kotlinOptions.jvmTarget = "11"
+        kotlinOptions.jvmTarget = "14"
     }
     wrapper {
         gradleVersion = "7.4.2"

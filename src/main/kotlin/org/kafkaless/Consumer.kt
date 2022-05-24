@@ -3,7 +3,9 @@ package org.kafkaless
 //import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.apache.commons.cli.CommandLine
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -40,16 +42,22 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
         false -> Channel()
     }
 
+    val shutdownChan = Channel<Any>(0)
+
     GlobalScope.launch {
-        consumeRecords(
-            properties = defaultProps,
-            topic = cmd.getOptionValue('t'),
-            useGroup = useGroup,
-            offset = offset,
-            channel = channel,
-            offsetIndex = index,
-            offsetTs = ts
-        )
+        try {
+            consumeRecords(
+                properties = defaultProps,
+                topic = cmd.getOptionValue('t'),
+                useGroup = useGroup,
+                offset = offset,
+                channel = channel,
+                offsetIndex = index,
+                offsetTs = ts
+            )
+        } finally {
+            shutdownChan.send(Any())
+        }
     }
     GlobalScope.launch {
         onEvent(
@@ -59,6 +67,10 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
             follow = autoFollow,
             count = cmd.getOptionValue("c")?.toLong() ?: Long.MAX_VALUE
         )
+    }
+
+    runBlocking {
+        shutdownChan.receive()
     }
 }
 
@@ -81,7 +93,7 @@ suspend fun consumeRecords(
 
 //    This is done to initialize the consumer with the above assignments. It never appears to returns records
 //    It is required for group consuming to allow the seek to work properly
-    kafkaConsumer.poll(Duration.ofMillis(100))
+    kafkaConsumer.poll(100)
 
     when (offset) {
         KafkaOffsets.Earliest -> {
@@ -93,7 +105,7 @@ suspend fun consumeRecords(
         KafkaOffsets.Offset -> {
             val partitionOffsets = when {
                 (offsetIndex!! < 0) -> {
-                    kafkaConsumer.endOffsets(kafkaConsumer.assignment(), Duration.ofMillis(5000)).map {
+                    kafkaConsumer.endOffsets(kafkaConsumer.assignment(), Duration.ofMillis(50000)).map {
                         Pair(it.key, it.value - offsetIndex)
                     }.toMap()
                 }
@@ -113,8 +125,9 @@ suspend fun consumeRecords(
             kafkaConsumer.commitSync()
         }
         KafkaOffsets.OffsetTs -> {
-            val seekTimes = kafkaConsumer.assignment().associateWith { offsetTs!! }
-            val partitionTimes = kafkaConsumer.offsetsForTimes(seekTimes, Duration.ofMillis(5000))
+            val assignment = kafkaConsumer.assignment()
+            val seekTimes = assignment.associateWith { offsetTs!! }
+            val partitionTimes = kafkaConsumer.offsetsForTimes(seekTimes, Duration.ofMillis(50000))
 
 //            setting the ts based ts for each partition
             for (partitionTime in partitionTimes) {
@@ -122,7 +135,7 @@ suspend fun consumeRecords(
             }
 
 //             needed to initialize the offsets we just set in the cluster
-            kafkaConsumer.poll(Duration.ofMillis(100))
+            kafkaConsumer.poll(100)
 //            committing the offsets we just initialized
             kafkaConsumer.commitSync()
         }
@@ -130,21 +143,25 @@ suspend fun consumeRecords(
 
         }
     }
+    try {
+        while (true) {
+            val records = kafkaConsumer.poll(Duration.ofMillis(100))
 
-    while (true) {
-        val records = kafkaConsumer.poll(Duration.ofMillis(100))
-        when {
-            records.isEmpty -> {
-                Thread.sleep(100)
-            }
-            else -> {
-                kafkaConsumer.pause(kafkaConsumer.assignment())
-                records.forEach {
-                    channel.send(it)
+            when {
+                records.isEmpty -> {
+                    delay(100)
                 }
-                kafkaConsumer.resume(kafkaConsumer.assignment())
+                else -> {
+                    kafkaConsumer.pause(kafkaConsumer.assignment())
+                    records.forEach {
+                        channel.send(it)
+                    }
+                    kafkaConsumer.resume(kafkaConsumer.assignment())
+                }
             }
+
         }
+    } catch (_: Exception) {
     }
 }
 
@@ -182,4 +199,6 @@ suspend fun onEvent(
 
         inputChannel?.read(buf)
     }
+
+    channel.close()
 }

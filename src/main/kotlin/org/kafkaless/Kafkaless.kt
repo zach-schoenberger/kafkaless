@@ -106,9 +106,6 @@ fun main(args: Array<String>) {
             startConsumer(defaultProps, cmd)
         }
     }
-    while (true) {
-        Thread.sleep(100)
-    }
 }
 
 fun Properties.loadPropertiesFile(file: String) {
