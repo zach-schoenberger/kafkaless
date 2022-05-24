@@ -22,7 +22,7 @@ fun main(args: Array<String>) {
     options.addRequiredOption("b", "broker", true, "broker list [address:port]")
     options.addRequiredOption("t", "topic", true, "topic")
     options.addOption("s", "ssl", false, "enable ssl")
-    options.addOption("o", "offset", true, "offset to start at [beginning|end|stored]")
+    options.addOption("o", "offset", true, "offset to start at [beginning|end|stored|<absolute offset>|-<relative offset from end>|@<timestamp in ms to start at>]")
     options.addOption("P", "publish", false, "publish to topic. requires either -l or -i")
     options.addOption("l", "file", true, "file of lines to publish to kafka topic")
     options.addOption("i", false, "read stdin to publish to kafka topic")
