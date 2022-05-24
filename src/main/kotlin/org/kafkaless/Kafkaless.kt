@@ -36,22 +36,24 @@ fun main(args: Array<String>) {
     options.addOption("h", "help", false, "help")
 
     val propertiesOption = Option.builder()
-            .argName("properties")
-            .hasArg()
-            .longOpt("properties")
-            .desc("kafka properties")
-            .build()
+        .argName("properties")
+        .hasArg()
+        .longOpt("properties")
+        .desc("kafka properties")
+        .build()
     options.addOption(propertiesOption)
 
-    options.addOption(Option.builder()
+    options.addOption(
+        Option.builder()
             .longOpt("pause")
             .desc("puases stream after displaying record. must press enter for new record")
-            .build())
+            .build()
+    )
 
     val parser = DefaultParser()
     val cmd = try {
         parser.parse(options, args)!!
-    } catch (ignore: Exception){
+    } catch (ignore: Exception) {
         printHelp(options)
         exitProcess(1)
     }
@@ -78,7 +80,7 @@ fun main(args: Array<String>) {
     val defaultProps = Properties()
     defaultProps.loadPropertiesFile("default.properties")
 
-    if(cmd.hasOption('s')) {
+    if (cmd.hasOption('s')) {
         defaultProps.loadPropertiesFile("default-ssl.properties")
 
         try {
@@ -89,8 +91,7 @@ fun main(args: Array<String>) {
             val sub = StringSubstitutor(valuesMap)
             defaultProps["client.id"] = sub.replace(defaultProps["client.id"])
             defaultProps["sasl.jaas.config"] = sub.replace(defaultProps["sasl.jaas.config"])
-        }
-        catch (ignore: Exception) {
+        } catch (ignore: Exception) {
         }
     }
 
@@ -109,7 +110,7 @@ fun main(args: Array<String>) {
 }
 
 fun Properties.loadPropertiesFile(file: String) {
-    try{
+    try {
         this.load(ClassLoader.getSystemResourceAsStream(file))
     } catch (e: Exception) {
         System.err.println(e.message)
@@ -117,7 +118,7 @@ fun Properties.loadPropertiesFile(file: String) {
     }
 }
 
-fun printHelp(options: Options){
+fun printHelp(options: Options) {
     val formatter = HelpFormatter()
     formatter.printHelp("kafkaless", "kafkaless", options, "", true)
 }

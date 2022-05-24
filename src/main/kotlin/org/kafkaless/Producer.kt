@@ -14,7 +14,7 @@ import java.io.File
 import java.util.*
 
 fun startProducer(defaultProps: Properties, cmd: CommandLine) {
-    val inputStream = if(cmd.hasOption("l")) {
+    val inputStream = if (cmd.hasOption("l")) {
         File(cmd.getOptionValue("l")).bufferedReader()
     } else {
         System.`in`.bufferedReader()
@@ -32,22 +32,24 @@ fun startProducer(defaultProps: Properties, cmd: CommandLine) {
     }
 }
 
-suspend fun produceRecords(properties: Properties,
-                           topic: String,
-                           channel: Channel<String>
+suspend fun produceRecords(
+    properties: Properties,
+    topic: String,
+    channel: Channel<String>
 ) {
     val kafkaProducer = KafkaProducer<String, String>(properties)
-    while(!channel.isClosedForSend) {
+    while (!channel.isClosedForSend) {
         val record = channel.receive()
-        if(record == IOUtils.EOF.toByte().toString()) {
+        if (record == IOUtils.EOF.toByte().toString()) {
             break
         }
         kafkaProducer.send(ProducerRecord(topic, record))
     }
 }
 
-fun readRecordsFromStream(inputStream: BufferedReader,
-                                  channel: Channel<String>
+fun readRecordsFromStream(
+    inputStream: BufferedReader,
+    channel: Channel<String>
 ) {
     inputStream.use {
         it.lineSequence().forEach {
