@@ -2,17 +2,18 @@ package org.kafkaless
 
 //import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import org.apache.commons.cli.CommandLine
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.TopicPartition
+import java.time.Duration
 import java.util.*
 
 fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
     val useGroup = cmd.hasOption('g')
-    if(useGroup) {
+    if (useGroup) {
         defaultProps["group.id"] = cmd.getOptionValue('g')
         defaultProps["enable.auto.commit"] = "true"
     } else {
@@ -20,49 +21,58 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
         defaultProps["enable.auto.commit"] = "false"
     }
 
-    val offset = if(cmd.hasOption("o")) {
-        when(cmd.getOptionValue("o")) {
-            "beginning" -> KafkaOffsets.Earliest
-            "end" -> KafkaOffsets.Latest
-            "stored" -> KafkaOffsets.None
-            else -> KafkaOffsets.None
+    val (offset, index, ts) = if (cmd.hasOption("o")) {
+        val value = cmd.getOptionValue("o")
+        when {
+            value == "beginning" -> Triple(KafkaOffsets.Earliest, null, null)
+            value == "end" -> Triple(KafkaOffsets.Latest, null, null)
+            value == "stored" -> Triple(KafkaOffsets.None, null, null)
+            value.startsWith("@") -> Triple(KafkaOffsets.OffsetTs, null, value.trimStart('@').toLongOrNull())
+            else -> Triple(KafkaOffsets.Offset, value.toLongOrNull(), null)
         }
     } else {
-        KafkaOffsets.None
+        Triple(KafkaOffsets.None, null, null)
     }
 
     val autoFollow = !cmd.hasOption("pause")
-    val channel : Channel<ConsumerRecord<String, String>> = when(autoFollow) {
+    val channel: Channel<ConsumerRecord<String, String>> = when (autoFollow) {
         true -> Channel(1000)
         false -> Channel()
     }
 
     GlobalScope.launch {
-        consumeRecords(properties = defaultProps,
-                topic = cmd.getOptionValue('t'),
-                useGroup = useGroup,
-                offset = offset,
-                channel = channel
+        consumeRecords(
+            properties = defaultProps,
+            topic = cmd.getOptionValue('t'),
+            useGroup = useGroup,
+            offset = offset,
+            channel = channel,
+            offsetIndex = index,
+            offsetTs = ts
         )
     }
     GlobalScope.launch {
-        onEvent(channel = channel,
-                fullRecord = cmd.hasOption("F"),
-                filterRegex = cmd.getOptionValue("r"),
-                follow = autoFollow,
-                count = cmd.getOptionValue("c")?.toLong() ?: Long.MAX_VALUE
+        onEvent(
+            channel = channel,
+            fullRecord = cmd.hasOption("F"),
+            filterRegex = cmd.getOptionValue("r"),
+            follow = autoFollow,
+            count = cmd.getOptionValue("c")?.toLong() ?: Long.MAX_VALUE
         )
     }
 }
 
-suspend fun consumeRecords(properties: Properties,
-                           topic: String,
-                           offset: KafkaOffsets,
-                           useGroup: Boolean,
-                           channel: Channel<ConsumerRecord<String, String>>
+suspend fun consumeRecords(
+    properties: Properties,
+    topic: String,
+    offset: KafkaOffsets,
+    offsetIndex: Long?,
+    offsetTs: Long?,
+    useGroup: Boolean,
+    channel: Channel<ConsumerRecord<String, String>>
 ) {
-    val kafkaConsumer = KafkaConsumer<String,String>(properties)
-    if(useGroup) {
+    val kafkaConsumer = KafkaConsumer<String, String>(properties)
+    if (useGroup) {
         kafkaConsumer.subscribe(listOf(topic))
     } else {
         val partitions = kafkaConsumer.partitionsFor(topic).map { TopicPartition(it.topic(), it.partition()) }
@@ -71,20 +81,58 @@ suspend fun consumeRecords(properties: Properties,
 
 //    This is done to initialize the consumer with the above assignments. It never appears to returns records
 //    It is required for group consuming to allow the seek to work properly
-    kafkaConsumer.poll(100)
+    kafkaConsumer.poll(Duration.ofMillis(100))
 
-    when(offset){
+    when (offset) {
         KafkaOffsets.Earliest -> {
             kafkaConsumer.seekToBeginning(kafkaConsumer.assignment())
         }
         KafkaOffsets.Latest -> {
             kafkaConsumer.seekToEnd(kafkaConsumer.assignment())
         }
-        else -> {}
+        KafkaOffsets.Offset -> {
+            val partitionOffsets = when {
+                (offsetIndex!! < 0) -> {
+                    kafkaConsumer.endOffsets(kafkaConsumer.assignment(), Duration.ofMillis(5000)).map {
+                        Pair(it.key, it.value - offsetIndex)
+                    }.toMap()
+                }
+                else -> {
+                    kafkaConsumer.assignment().associateWith { offsetIndex.toLong() }
+                }
+            }
+
+//            setting the ts based ts for each partition
+            for (partitionTime in partitionOffsets) {
+                kafkaConsumer.seek(partitionTime.key, partitionTime.value)
+            }
+
+//             needed to initialize the offsets we just set in the cluster
+            kafkaConsumer.poll(Duration.ofMillis(100))
+//            committing the offsets we just initialized
+            kafkaConsumer.commitSync()
+        }
+        KafkaOffsets.OffsetTs -> {
+            val seekTimes = kafkaConsumer.assignment().associateWith { offsetTs!! }
+            val partitionTimes = kafkaConsumer.offsetsForTimes(seekTimes, Duration.ofMillis(5000))
+
+//            setting the ts based ts for each partition
+            for (partitionTime in partitionTimes) {
+                kafkaConsumer.seek(partitionTime.key, partitionTime.value.offset())
+            }
+
+//             needed to initialize the offsets we just set in the cluster
+            kafkaConsumer.poll(Duration.ofMillis(100))
+//            committing the offsets we just initialized
+            kafkaConsumer.commitSync()
+        }
+        else -> {
+
+        }
     }
 
-    while(true) {
-        val records = kafkaConsumer.poll(100)
+    while (true) {
+        val records = kafkaConsumer.poll(Duration.ofMillis(100))
         when {
             records.isEmpty -> {
                 Thread.sleep(100)
@@ -100,18 +148,19 @@ suspend fun consumeRecords(properties: Properties,
     }
 }
 
-suspend fun onEvent(channel: Channel<ConsumerRecord<String, String>>,
-                    fullRecord: Boolean,
-                    filterRegex: String?,
-                    follow: Boolean,
-                    count: Long
+suspend fun onEvent(
+    channel: Channel<ConsumerRecord<String, String>>,
+    fullRecord: Boolean,
+    filterRegex: String?,
+    follow: Boolean,
+    count: Long
 ) {
     val regex = filterRegex?.let {
         filterRegex.removeSurrounding("'")
         Regex(filterRegex)
     }
 
-    val inputChannel = when(follow) {
+    val inputChannel = when (follow) {
         true -> null
         false -> System.`in`.bufferedReader()
     }

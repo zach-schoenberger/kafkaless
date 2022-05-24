@@ -11,6 +11,8 @@ import kotlin.system.exitProcess
 enum class KafkaOffsets {
     Earliest,
     Latest,
+    Offset,
+    OffsetTs,
     None
 }
 
