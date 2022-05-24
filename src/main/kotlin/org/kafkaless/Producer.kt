@@ -21,15 +21,13 @@ fun startProducer(defaultProps: Properties, cmd: CommandLine) {
     }
 
     val channel = Channel<String>(1000)
-    val readJob = GlobalScope.async {
-        readRecordsFromStream(inputStream = inputStream, channel = channel)
-    }
     val writeJob = GlobalScope.async {
         produceRecords(properties = defaultProps, topic = cmd.getOptionValue('t'), channel = channel)
     }
 
+    readRecordsFromStream(inputStream = inputStream, channel = channel)
+
     runBlocking {
-        readJob.await()
         writeJob.await()
     }
 }
@@ -48,7 +46,7 @@ suspend fun produceRecords(properties: Properties,
     }
 }
 
-suspend fun readRecordsFromStream(inputStream: BufferedReader,
+fun readRecordsFromStream(inputStream: BufferedReader,
                                   channel: Channel<String>
 ) {
     inputStream.use {

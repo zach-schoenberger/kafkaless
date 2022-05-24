@@ -1,6 +1,5 @@
 package org.kafkaless
 
-//import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -19,7 +18,6 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
         defaultProps["group.id"] = cmd.getOptionValue('g')
         defaultProps["enable.auto.commit"] = "true"
     } else {
-//        defaultProps["group.id"] = UUID.randomUUID().toString()
         defaultProps["enable.auto.commit"] = "false"
     }
 
@@ -53,12 +51,14 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
                 offset = offset,
                 channel = channel,
                 offsetIndex = index,
-                offsetTs = ts
+                offsetTs = ts,
+                follow = autoFollow
             )
         } finally {
             shutdownChan.send(Any())
         }
     }
+
     GlobalScope.launch {
         onEvent(
             channel = channel,
@@ -81,6 +81,7 @@ suspend fun consumeRecords(
     offsetIndex: Long?,
     offsetTs: Long?,
     useGroup: Boolean,
+    follow: Boolean,
     channel: Channel<ConsumerRecord<String, String>>
 ) {
     val kafkaConsumer = KafkaConsumer<String, String>(properties)
@@ -152,11 +153,17 @@ suspend fun consumeRecords(
                     delay(100)
                 }
                 else -> {
-                    kafkaConsumer.pause(kafkaConsumer.assignment())
+                    if (follow) {
+                        kafkaConsumer.pause(kafkaConsumer.assignment())
+                    }
+
                     records.forEach {
                         channel.send(it)
                     }
-                    kafkaConsumer.resume(kafkaConsumer.assignment())
+
+                    if (follow) {
+                        kafkaConsumer.resume(kafkaConsumer.assignment())
+                    }
                 }
             }
 
