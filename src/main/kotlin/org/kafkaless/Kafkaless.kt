@@ -13,16 +13,20 @@ enum class KafkaOffsets {
     Latest,
     Offset,
     OffsetTs,
-    None
+    None,
 }
 
 fun main(args: Array<String>) {
-
     val options = Options()
     options.addRequiredOption("b", "broker", true, "broker list [address:port]")
     options.addRequiredOption("t", "topic", true, "topic")
     options.addOption("s", "ssl", false, "enable ssl")
-    options.addOption("o", "offset", true, "offset to start at [beginning|end|stored|<absolute offset>|-<relative offset from end>|@<timestamp in ms to start at>]")
+    options.addOption(
+        "o",
+        "offset",
+        true,
+        "offset to start at [beginning|end|stored|<absolute offset>|-<relative offset from end>|@<timestamp in ms to start at>]",
+    )
     options.addOption("P", "publish", false, "publish to topic. requires either -l or -i")
     options.addOption("l", "file", true, "file of lines to publish to kafka topic")
     options.addOption("i", false, "read stdin to publish to kafka topic")
@@ -47,7 +51,7 @@ fun main(args: Array<String>) {
         Option.builder()
             .longOpt("pause")
             .desc("puases stream after displaying record. must press enter for new record")
-            .build()
+            .build(),
     )
 
     val parser = DefaultParser()
@@ -63,14 +67,17 @@ fun main(args: Array<String>) {
             printHelp(options)
             exitProcess(0)
         }
+
         cmd.hasOption('P') && !(cmd.hasOption('i') || cmd.hasOption('l')) -> {
             printHelp(options)
             exitProcess(1)
         }
+
         !(cmd.hasOption('b') && cmd.hasOption('t')) -> {
             printHelp(options)
             exitProcess(1)
         }
+
         (cmd.hasOption('s') && !(cmd.hasOption('u') && cmd.hasOption('p'))) -> {
             printHelp(options)
             exitProcess(1)
@@ -103,6 +110,7 @@ fun main(args: Array<String>) {
         cmd.hasOption('P') -> {
             startProducer(defaultProps, cmd)
         }
+
         else -> {
             startConsumer(defaultProps, cmd)
         }
@@ -122,4 +130,3 @@ fun printHelp(options: Options) {
     val formatter = HelpFormatter()
     formatter.printHelp("kafkaless", "kafkaless", options, "", true)
 }
-

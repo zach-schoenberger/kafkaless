@@ -35,7 +35,7 @@ fun startProducer(defaultProps: Properties, cmd: CommandLine) {
 suspend fun produceRecords(
     properties: Properties,
     topic: String,
-    channel: Channel<String>
+    channel: Channel<String>,
 ) {
     val kafkaProducer = KafkaProducer<String, String>(properties)
     while (!channel.isClosedForSend) {
@@ -49,7 +49,7 @@ suspend fun produceRecords(
 
 fun readRecordsFromStream(
     inputStream: BufferedReader,
-    channel: Channel<String>
+    channel: Channel<String>,
 ) {
     inputStream.use {
         it.lineSequence().forEach {

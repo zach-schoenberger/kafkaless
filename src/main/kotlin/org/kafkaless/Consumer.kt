@@ -52,7 +52,7 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
                 channel = channel,
                 offsetIndex = index,
                 offsetTs = ts,
-                follow = autoFollow
+                follow = autoFollow,
             )
         } catch (e: Exception) {
             println(e.message)
@@ -66,8 +66,7 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
             channel = channel,
             fullRecord = cmd.hasOption("F"),
             filterRegex = cmd.getOptionValue("r"),
-            follow = autoFollow,
-            count = cmd.getOptionValue("c")?.toLong() ?: Long.MAX_VALUE
+            count = cmd.getOptionValue("c")?.toLong() ?: Long.MAX_VALUE,
         )
     }
 
@@ -84,7 +83,7 @@ suspend fun consumeRecords(
     offsetTs: Long?,
     useGroup: Boolean,
     follow: Boolean,
-    channel: Channel<ConsumerRecord<String, String>>
+    channel: Channel<ConsumerRecord<String, String>>,
 ) {
     val kafkaConsumer = KafkaConsumer<String, String>(properties)
     if (useGroup) {
@@ -102,9 +101,11 @@ suspend fun consumeRecords(
         KafkaOffsets.Earliest -> {
             kafkaConsumer.seekToBeginning(kafkaConsumer.assignment())
         }
+
         KafkaOffsets.Latest -> {
             kafkaConsumer.seekToEnd(kafkaConsumer.assignment())
         }
+
         KafkaOffsets.Offset -> {
             val partitionOffsets = when {
                 (offsetIndex!! < 0) -> {
@@ -112,6 +113,7 @@ suspend fun consumeRecords(
                         Pair(it.key, it.value - offsetIndex)
                     }.toMap()
                 }
+
                 else -> {
                     kafkaConsumer.assignment().associateWith { offsetIndex.toLong() }
                 }
@@ -127,6 +129,7 @@ suspend fun consumeRecords(
 //            committing the offsets we just initialized
             kafkaConsumer.commitSync()
         }
+
         KafkaOffsets.OffsetTs -> {
             val assignment = kafkaConsumer.assignment()
             val seekTimes = assignment.associateWith { offsetTs!! }
@@ -144,6 +147,7 @@ suspend fun consumeRecords(
 //            committing the offsets we just initialized
             kafkaConsumer.commitSync()
         }
+
         else -> {
         }
     }
@@ -155,6 +159,7 @@ suspend fun consumeRecords(
                 records.isEmpty -> {
                     delay(100)
                 }
+
                 else -> {
                     if (follow) {
                         kafkaConsumer.pause(kafkaConsumer.assignment())
@@ -179,20 +184,13 @@ suspend fun onEvent(
     channel: Channel<ConsumerRecord<String, String>>,
     fullRecord: Boolean,
     filterRegex: String?,
-    follow: Boolean,
-    count: Long
+    count: Long,
 ) {
     val regex = filterRegex?.let {
         filterRegex.removeSurrounding("'")
         Regex(filterRegex)
     }
 
-    val inputChannel = when (follow) {
-        true -> null
-        false -> System.`in`.bufferedReader()
-    }
-
-    val buf = CharArray(1)
     var curCount = 0L
     while (curCount < count) {
         val consumerRecord = channel.receive()
@@ -206,8 +204,6 @@ suspend fun onEvent(
             curCount++
             println(record)
         }
-
-        inputChannel?.read(buf)
     }
 
     channel.close()
