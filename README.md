@@ -47,3 +47,7 @@ klqa -P -t page-views -l ./path/file.json
 ```
 klprod -t page-views -r '.*"AID":10730.*' | klqa -P -t page-views -i
 ```
+### Reset Offsets of a queue's partitions to a point in time
+```
+klprod -s -t membership-updates -g membership-etl-consumer-prod-03 -o @1702429200000 -c 0
+```

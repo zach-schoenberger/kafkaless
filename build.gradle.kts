@@ -6,7 +6,6 @@ plugins {
 }
 
 group = "com.steelhouse"
-version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
