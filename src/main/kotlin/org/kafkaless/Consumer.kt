@@ -54,6 +54,8 @@ fun startConsumer(defaultProps: Properties, cmd: CommandLine) {
                 offsetTs = ts,
                 follow = autoFollow
             )
+        } catch (e: Exception) {
+            println(e.message)
         } finally {
             shutdownChan.send(Any())
         }
@@ -132,7 +134,9 @@ suspend fun consumeRecords(
 
 //            setting the ts based ts for each partition
             for (partitionTime in partitionTimes) {
-                kafkaConsumer.seek(partitionTime.key, partitionTime.value.offset())
+                if (partitionTime.value != null) {
+                    kafkaConsumer.seek(partitionTime.key, partitionTime.value.offset())
+                }
             }
 
 //             needed to initialize the offsets we just set in the cluster
@@ -141,7 +145,6 @@ suspend fun consumeRecords(
             kafkaConsumer.commitSync()
         }
         else -> {
-
         }
     }
     try {
@@ -166,9 +169,9 @@ suspend fun consumeRecords(
                     }
                 }
             }
-
         }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        println(e.message)
     }
 }
 
